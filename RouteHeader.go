@@ -48,7 +48,7 @@ func (rh *RouteHeader) serialize() ([]byte, error) {
 	}
 	padBytes := []byte{flags, 0, 0, 0}
 	ipBytes := ZEROIP
-	fmt.Println("serialize isCTRL:", rh.IsCtrl)
+	// fmt.Println("serialize isCTRL:", rh.IsCtrl)
 	if string(rh.IP) != "" {
 		ipBytes = rh.IP.To16()
 	}

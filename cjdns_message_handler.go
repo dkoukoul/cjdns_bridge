@@ -224,16 +224,16 @@ func readCjdnsMessage() error {
 			fmt.Println(err)
 			return err
 		}
-		//Try to reverse...
-		fmt.Println("IP:", message.RouteHeader.IP.String())
-		encodedMsg, err := message.encode()
-		if err != nil {
-			fmt.Println(err)
-			return err
+
+		if message.DataHeader.ContentType == ContentType_RESERVED {
+			fmt.Println("Received RESERVED message")
+			fmt.Println("Bytes:", message.ContentBytes)
+			fmt.Println("Bencode:", message.ContentBenc)
+			fmt.Println("Raw:", message.RawBytes)
+		} else if message.DataHeader.ContentType == ContentType_CJDHT {
+			fmt.Println("Received CJDHT message")
+			fmt.Println("v"+ string(message.RouteHeader.Version)+" "+message.RouteHeader.SwitchHeader.Label+" "+message.RouteHeader.IP.String())
 		}
-		fmt.Println("Encoded message:", encodedMsg)
-		// message := decodeMessage(payload)
-		// fmt.Println("v"+ string(message.RouteHeader.Version)+" "+message.RouteHeader.SwitchHeader.Label+" "+message.RouteHeader.IP.String())
 	}
 	return nil
 }
@@ -349,14 +349,14 @@ func readConfig() {
 
 func main() {    
 	readConfig()
-	
+
 	err := Init()
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	var udpPort int64 = 1
-	registerHandler(ContentType_RESERVED, udpPort)
+	registerHandler(ContentType_RESERVED, udpPort)	
 
 	// check for --send parameter
 	sendPtr := flag.Bool("send", false, "a bool")
