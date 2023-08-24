@@ -227,7 +227,7 @@ func readCjdnsMessage() error {
 
 		if message.DataHeader.ContentType == ContentType_RESERVED {
 			fmt.Println("Received RESERVED message")
-			fmt.Println("Bytes:", message.ContentBytes)
+			fmt.Println("Content Bytes:", message.ContentBytes)
 			fmt.Println("Bencode:", message.ContentBenc)
 			fmt.Println("Raw:", message.RawBytes)
 		} else if message.DataHeader.ContentType == ContentType_CJDHT {

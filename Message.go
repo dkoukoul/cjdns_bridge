@@ -73,15 +73,9 @@ func decode(bytes []byte) (Message, error) {
 	dataBytes := bytes[x:]
 	var decodedBytes interface{} = nil
 	var content interface{} = nil
-	if dataHeader.ContentType == 258 {
-		// fmt.Println("Bytes:", string(dataBytes))
-		// hexStr := hex.EncodeToString(dataBytes)
-		// fmt.Println("Hex:", hexStr)
+	if dataHeader.ContentType == ContentType_RESERVED || dataHeader.ContentType == ContentType_CJDHT {
 		bencode.DecodeBytes(dataBytes, &decodedBytes)
-		// fmt.Println("Decoded Bytes:", decodedBytes)
-		//get and print txid from decoded bytes
-		// txid := decodedBytes.(map[string]interface{})["txid"]
-		// fmt.Println("txid:", txid)
+		fmt.Println("Bencode content:", decodedBytes)
 	} else if routeHeader.IsCtrl {
 		content, _ = parseCtrl(dataBytes)
 	}
