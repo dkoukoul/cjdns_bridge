@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net"
 	"strconv"
@@ -55,12 +57,7 @@ type Cjdns struct {
 	IPv6       string
 }
 
-var cjdns Cjdns = Cjdns{
-	SocketPath: "/home/dimitris/cjdroute.sock",
-	Socket:     nil,
-	Device:     "tun0",
-	IPv6:       "",
-}
+var cjdns Cjdns
 
 // Connect to CJDNS socket
 func Init() error {
@@ -332,7 +329,27 @@ func ping(node string) (string, error) {
 	return data, nil
 }
 
-func main() {
+func readConfig() {
+	configFile, err := ioutil.ReadFile("config.json")
+    if err != nil {
+        panic(err)
+    }
+
+    var config struct {
+        Cjdns Cjdns `json:"cjdns"`
+    }
+    err = json.Unmarshal(configFile, &config)
+    if err != nil {
+        panic(err)
+    }
+
+    // Set the Cjdns struct
+    cjdns = config.Cjdns
+}
+
+func main() {    
+	readConfig()
+	
 	err := Init()
 	if err != nil {
 		fmt.Println(err)

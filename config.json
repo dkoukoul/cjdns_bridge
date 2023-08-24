@@ -1,0 +1,8 @@
+{
+    "cjdns": {
+        "socketPath": "/home/dimitris/cjdroute.sock",
+        "socket": null,
+        "device": "tun0",
+        "ipv6": ""
+    }
+}
