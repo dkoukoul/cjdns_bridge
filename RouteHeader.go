@@ -86,10 +86,11 @@ func (rh *RouteHeader) parse(hdrBytes []byte) (RouteHeader, error) {
 	}
 	if !isCtrl && isAllZero(ipBytes) {
 		return RouteHeader{}, errors.New("IP6 is not defined")
-	} else if isCtrl && !isAllZero(ipBytes) {
-		// return RouteHeader_t{}, errors.New("IP6 is defined for CTRL frame")
-		// fmt.Println("IP6 is defined for CTRL frame")
 	}
+	// } else if isCtrl && !isAllZero(ipBytes) {
+	// 	// return RouteHeader_t{}, errors.New("IP6 is defined for CTRL frame")
+	// 	// fmt.Println("IP6 is defined for CTRL frame")
+	// }
 	switchHeader := SwitchHeader{}
 	switchHeader, err := switchHeader.parse(shBytes)
 
@@ -140,7 +141,7 @@ func stringToKeyBytes(key string) []byte {
 
 func keyBytesToString(bytes []byte) string {
 	if len(bytes) != 32 {
-		fmt.Println("unexpected length %d", len(bytes))
+		fmt.Println("unexpected length", len(bytes))
 	}
 	return Base32_encode(bytes) + ".k"
 }

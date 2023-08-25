@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/zeebo/bencode"
@@ -85,7 +86,7 @@ func decode(bytes []byte) (Message, error) {
 	var content interface{} = nil
 	if dataHeader.ContentType == ContentType_RESERVED {
 		coinType := dataBytes[:4]
-		if string(coinType) == "80000186" {
+		if hex.EncodeToString(coinType) == "80000186" {
 			fmt.Println("coinType is PKT")
 		}
 		bencode.DecodeBytes(dataBytes[4:], &decodedBytes)

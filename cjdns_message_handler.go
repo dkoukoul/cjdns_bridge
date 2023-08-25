@@ -145,7 +145,7 @@ func getDeviceAddr(device string) (string, error) {
 		fmt.Println("Error getting interfaces:", err)
 		return "", err
 	}
-
+	deviceAddr := ""
 	for _, iface := range ifaces {
 		if iface.Name == device {
 			addrs, err := iface.Addrs()
@@ -161,23 +161,27 @@ func getDeviceAddr(device string) (string, error) {
 					fmt.Println("Error parsing CIDR:", err)
 					return "", err
 				}
-				return ip.String(), nil
+				deviceAddr = ip.String()
+				break
 			}
 		}
+		if deviceAddr != "" {
+			return deviceAddr, nil
+		}
 	}
-	return "", errors.New("Device not found")
+	return "", errors.New("device not found")
 }
 
 func sendCjdnsMessage() error {
 	// use this to send a packet to cjdns throught tun0
 	rAddr, err := net.ResolveUDPAddr("udp", "[fc00::1]:1")
 	if err != nil {
-		fmt.Println("Error resolving UDP address: %v\n", err)
+		fmt.Println("Error resolving UDP address:", err)
 		return err
 	}
 	cjdns.IPv6, err = getDeviceAddr(cjdns.Device)
 	if err != nil {
-		fmt.Println("Error getting device address: %v\n", err)
+		fmt.Println("Error getting device address:", err)
 		return err
 	}
 	//bind to local address (tun0) and a port, then register that port to cjdns
@@ -186,7 +190,7 @@ func sendCjdnsMessage() error {
 	
 	registerHandler(ContentType_RESERVED, 37193)
 	if err != nil {
-		fmt.Println("Error dialing UDP address: %v\n", err)
+		fmt.Println("Error dialing UDP address:", err)
 		return err
 	}
 	defer conn.Close()
@@ -198,7 +202,7 @@ func sendCjdnsMessage() error {
 	// Send data
 	_, err = conn.Write(data)
 	if err != nil {
-		fmt.Println("Error sending UDP packet: %v\n", err)
+		fmt.Println("Error sending UDP packet:", err)
 		unregisterHandler(37193)
 		return err
 	}
@@ -211,7 +215,7 @@ func sendCjdnsMessage() error {
 func readCjdnsMessage() error {
 	handle, err := pcap.OpenLive(cjdns.Device, 4096, true, pcap.BlockForever)
 	if err != nil {
-		fmt.Println("Error reading tun0: %v", err)
+		fmt.Println("Error reading tun0:", err)
 		return err
 	}
 	defer handle.Close()
@@ -257,7 +261,7 @@ func createInvoiceRequest(receiverIP string, receiverPubkey string, amount int) 
 	bytesMessage = append(bytesMessage, coinType...)
 	encodedMsg, err := bencode.EncodeBytes(msg)
 	if err != nil {
-		fmt.Println("Error encoding message: %v\n", err)
+		fmt.Println("Error encoding message:", err)
 	}
 	bytesMessage = append(bytesMessage, encodedMsg...)
 	var cjdnsip net.IP = net.ParseIP(receiverIP)
@@ -285,7 +289,7 @@ func createInvoiceRequest(receiverIP string, receiverPubkey string, amount int) 
 	fmt.Println("Bencode content:", msg)
 	payload, err := message.encode()
 	if err != nil {
-		fmt.Println("Error encoding message: %v\n", err)
+		fmt.Println("Error encoding message:", err)
 	}
 	return payload
 }
