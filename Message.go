@@ -1,9 +1,7 @@
 package main
 
 import (
-	// "encoding/hex"
 	"bytes"
-	// "encoding/hex"
 	"fmt"
 
 	"github.com/zeebo/bencode"
@@ -18,32 +16,43 @@ type Message struct {
 	Content      interface{}
 }
 
-func (msg* Message) encode() ([]byte, error) {
-    var buf bytes.Buffer
+func (msg *Message) encode() ([]byte, error) {
+	var buf bytes.Buffer
 
-    // Write route header
-    routeHeaderBytes, err := msg.RouteHeader.serialize()
+	// Write route header
+	routeHeaderBytes, err := msg.RouteHeader.serialize()
 	// fmt.Println("Route Header Bytes:", routeHeaderBytes)
-    if err != nil {
-        return nil, err
-    }
-    buf.Write(routeHeaderBytes)
+	if err != nil {
+		return nil, err
+	}
+	buf.Write(routeHeaderBytes)
 
-    // Write data header if not a control message
-    if !msg.RouteHeader.IsCtrl {
-        //dataHeaderBytes, err := msg.DataHeader.encode()
-		
+	// Write data header if not a control message
+	if !msg.RouteHeader.IsCtrl {
 		dataHeaderBytes, err := msg.DataHeader.encode()
-        if err != nil {
-            return nil, err
-        }
-        buf.Write(dataHeaderBytes)
-    }
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(dataHeaderBytes)
+	}
 
-    // Write content bytes
-    buf.Write(msg.ContentBytes)
+	// Write content bytes
+	buf.Write(msg.ContentBytes)
+	buf.Write(msg.RawBytes)
+	bencBytes, ok := msg.ContentBenc.([]byte)
+	if !ok {
+		fmt.Println("Error converting bencode to bytes")
+	} else {
+		buf.Write(bencBytes)
+	}
+	contentBytes, ok := msg.Content.([]byte)
+	if !ok {
+		fmt.Println("Error converting content to bytes")
+	} else {
+		buf.Write(contentBytes)
+	}
 
-    return buf.Bytes(), nil
+	return buf.Bytes(), nil
 }
 
 func decode(bytes []byte) (Message, error) {
@@ -71,9 +80,16 @@ func decode(bytes []byte) (Message, error) {
 		//fmt.Println("Data Header:", dataHeader)
 	}
 	dataBytes := bytes[x:]
+
 	var decodedBytes interface{} = nil
 	var content interface{} = nil
-	if dataHeader.ContentType == ContentType_RESERVED || dataHeader.ContentType == ContentType_CJDHT {
+	if dataHeader.ContentType == ContentType_RESERVED {
+		coinType := dataBytes[:4]
+		if string(coinType) == "80000186" {
+			fmt.Println("coinType is PKT")
+		}
+		bencode.DecodeBytes(dataBytes[4:], &decodedBytes)
+	} else if dataHeader.ContentType == ContentType_CJDHT {
 		bencode.DecodeBytes(dataBytes, &decodedBytes)
 		fmt.Println("Bencode content:", decodedBytes)
 	} else if routeHeader.IsCtrl {
