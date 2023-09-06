@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/pcap"
 	"github.com/zeebo/bencode"
 )
 
@@ -172,7 +170,8 @@ func getDeviceAddr(device string) (string, error) {
 	return "", errors.New("device not found")
 }
 
-func sendCjdnsMessage() error {
+func sendCjdnsMessage(cjdns_addr string, pubkey string, amount int) error {
+	fmt.Println("Send Cjdns message to:", cjdns_addr, "pubkey:", pubkey, "amount:", amount)
 	// use this to send a packet to cjdns throught tun0
 	rAddr, err := net.ResolveUDPAddr("udp", "[fc00::1]:1")
 	if err != nil {
@@ -196,9 +195,9 @@ func sendCjdnsMessage() error {
 	defer conn.Close()
 
 	// Data to send
-	receiverPubkey := "pvt7n9bt2s3jcl52glw1b06ruyg93y3qn4lfm9590ptjvxr90hj0.k"
-	receiverIP := "fce3:86e9:b183:1a06:ad9a:c37f:14fe:36c2"
-	data := createInvoiceRequest(receiverIP, receiverPubkey, 1000)
+	// receiverPubkey := "pvt7n9bt2s3jcl52glw1b06ruyg93y3qn4lfm9590ptjvxr90hj0.k"
+	// receiverIP := "fce3:86e9:b183:1a06:ad9a:c37f:14fe:36c2"
+	data := createInvoiceRequest(cjdns_addr, pubkey, amount)
 	// Send data
 	_, err = conn.Write(data)
 	if err != nil {
@@ -212,35 +211,54 @@ func sendCjdnsMessage() error {
 	return nil
 }
 
-func readCjdnsMessage() error {
-	handle, err := pcap.OpenLive(cjdns.Device, 4096, true, pcap.BlockForever)
+func ListeningForInvoiceRequest(cjdnsaddr string) error {
+	// use this to read a packet to cjdns throught tun0
+	cjdns.IPv6, _ = getDeviceAddr(cjdns.Device)
+	rAddr, err := net.ResolveUDPAddr("udp", "["+cjdnsaddr+"]:0")
+	fmt.Println("ListeningForInvoiceRequest:", rAddr)
 	if err != nil {
-		fmt.Println("Error reading tun0:", err)
+		fmt.Println("Error resolving UDP address:", err)
 		return err
 	}
-	defer handle.Close()
 
-	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-	for packet := range packetSource.Packets() {
-		// fmt.Println("Packet:", packet.ApplicationLayer().Payload())
-		message, err := decode(packet.ApplicationLayer().Payload())
-		if err != nil {
-			fmt.Println(err)
-			return err
-		}
-
-		if message.DataHeader.ContentType == ContentType_RESERVED {
-			fmt.Println("Received RESERVED message")
-			fmt.Println("Content Bytes:", message.ContentBytes)
-			fmt.Println("Bencode:", message.ContentBenc)
-			fmt.Println("Raw:", message.RawBytes)
-		} else if message.DataHeader.ContentType == ContentType_CJDHT {
-			fmt.Println("Received CJDHT message")
-			fmt.Println("v"+ string(message.RouteHeader.Version)+" "+message.RouteHeader.SwitchHeader.Label+" "+message.RouteHeader.IP.String())
-		}
+	//bind to local address (tun0) and a port, then register that port to cjdns
+	fmt.Println("Port:", rAddr.Port)
+	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP(cjdnsaddr), Port: rAddr.Port})
+	if err != nil {
+		fmt.Println("Error dialing UDP address:", err)
+		return err
 	}
-	return nil
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	registerHandler(ContentType_RESERVED, int64(localAddr.Port))
+	buf := make([]byte, 1024)
+	// go func() {
+		for {
+			n, addr, err := conn.ReadFromUDP(buf)
+			if err != nil {
+				fmt.Printf("Error reading from UDP port %d: %v\n", rAddr.Port, err)
+				continue
+			}
+			fmt.Printf("Received %d bytes from %s: %s\n", n, addr.String(), string(buf[:n]))
+			message, err := decode(buf[:n])
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			if message.DataHeader.ContentType == ContentType_RESERVED {
+				fmt.Println("Received RESERVED message")
+
+				if message.ContentBenc.(map[string]interface{})["q"] != nil && message.ContentBenc.(map[string]interface{})["q"].(string) == "invoice_req" {
+					fmt.Println("Received request")
+					// Decode request
+
+				}
+			}
+		}
+	// }()
+	//unregisterHandler(int64(localAddr.Port))
+	// return nil
 }
+
 
 func generateRandomNumber() int {
     rand.Seed(time.Now().UnixNano())
@@ -364,13 +382,22 @@ func main() {
 
 	// check for --send parameter
 	sendPtr := flag.Bool("send", false, "a bool")
-	flag.Parse()
 	pingPtr := flag.Bool("ping", false, "a bool")
-	flag.Parse()
+    cjdnsaddrPtr := flag.String("cjdnsaddr", "", "The cjdnsaddr to use.")
+    pubkeyPtr := flag.String("pubkey", "", "The pubkey to use.")
+    amountPtr := flag.Int("amount", 0, "The amount to use.")
+
+    // Parse the command line flags.
+    flag.Parse()
+
 	if *sendPtr {
-		sendCjdnsMessage()
+		sendCjdnsMessage(*cjdnsaddrPtr, *pubkeyPtr, *amountPtr)
 	} else {
-		readCjdnsMessage()
+		err := ListeningForInvoiceRequest(*cjdnsaddrPtr)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 	}
 	if *pingPtr {
 		// vm cjdns node fce3:86e9:b183:1a06:ad9a:c37f:14fe:36c2
@@ -380,6 +407,8 @@ func main() {
 		}
 		fmt.Println(data)
 	}
+	fmt.Println("Press enter to exit...")
+	fmt.Scanln()
 
 	unregisterHandler(udpPort)
 }
